@@ -16,6 +16,8 @@ interface Model extends ArrayAccess, Iterator, Countable {
     public function save();
     public function load();
     public function represent(Representation $repr, $depth=0);
+    public function setVal($value);
+    public function getVal();
 }
 
 abstract class BaseModel implements Model {
@@ -87,8 +89,20 @@ abstract class BaseModel implements Model {
         return $results;
     }
 
+    public function setVal($value){
+        //pass; //doesn't really do anything for Model's, look at component
+    }
+
+    public function getVal(){
+        return $this;
+    }
+
     public function offsetSet($offset, $value){
-        $this->$offset = $value;
+        if(isset($this->$offset) && $this->$offset instanceof Model){
+            $this->$offset->setVal($value);
+        } else {
+            $this->$offset = $value;
+        }
     }
 
     public function offsetExists($offset){
@@ -134,6 +148,7 @@ abstract class ModelComponent implements Model {
     protected $nullable;
     protected $position = 0;
     protected $fields   = array();
+    protected $value;
     /**
      *   Components are not stored in the db by themselves, but the interface
      * still requires that we implement save/load.
@@ -161,6 +176,19 @@ abstract class ModelComponent implements Model {
 
     public function getDefaultValue(){
         return $default;
+    }
+
+    public function setVal($value){
+        $this->value = $value;
+    }
+
+    /*
+     * getVal
+     *
+     *   You can also do $model['field']['value'].
+     */
+    public function getVal(){
+        return $this->value;
     }
 
     /* Array Access methods */
@@ -264,6 +292,50 @@ class ForeignKey extends ModelComponent {
     public function represent(Representation $repr, $depth=0){
         return $repr->represent($this, $depth);
     }
+}
+
+/*
+ * PrimaryKey
+ *
+ *   Creates a component which will be added to the list of primary key
+ * fields at the end of the table definition in an SqlRepresentation.
+ */
+class PrimaryKey extends ModelComponent {
+
+    public function __construct(ModelComponent $wrapped){
+        $this->wrapped = $wrapped;
+        $this->nullable = false;  //Null primary keys are bad, if you think you need them you're wrong!
+    }
+
+    public function getType(){
+        return 'pkey';
+    }
+
+    public function represent(Representation $repr, $depth=0){
+        return $this->wrapped->represent($repr, $depth);
+    }
+
+    public function getDefaultValue(){
+        return $wrapped['default'];
+    }
+
+    public function setVal($value){
+        $wrapped->setVal($value);
+    }
+
+    public function getVal(){
+        return $wrapped->getVal();
+    }
+}
+
+/*
+ * ModelArray
+ *
+ *  Virtual field which tells the model that it "contains" a list of fields
+ * of some Model subtype.  On load it will look in that subtype's table for
+ * objects which have a fkey pointing at the model.
+ */
+class ModelArray extends ModelComponent {
 }
     
 ?>

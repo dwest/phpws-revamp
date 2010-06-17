@@ -11,9 +11,12 @@ PHPWS_Core::initModClass('testing', 'SqlRepresentations.php');
 
 class Note extends BaseModel {
     public function __construct($title, $contents){
-        $this['title']     = new TextField($title, 255);
-        $this['contents']  = new TextField($contents, NULL);
+        $this['title']     = new TextField('default', 255);
+        $this['contents']  = new TextField('', NULL);
         $this['edits']     = new NumberField(0,32,false);
+
+        $this['title']    = $title; //set the title's value to $title
+        $this['contents'] = $contents; //ditto
 
         //Need to set variables to iterate over
         parent::__construct();
