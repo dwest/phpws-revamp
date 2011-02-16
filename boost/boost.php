@@ -11,7 +11,7 @@ $import_sql   = true;
 $about        = true;
 $priority     = 50;
 $dependency   = true;
-$image_dir    = false;
+$image_dir    = true;
 $file_dir     = false;
 
 ?>

@@ -9,7 +9,7 @@ $link[] = array(
         'restricted'    => true,
         'url'           => 'index.php?module=testing',
         'description'   => 'Test Random Ideas',
-        'image'         => 'skeleton.png',
+        'image'         => 'test.png',
         'tab'           => 'content'
         );
 
