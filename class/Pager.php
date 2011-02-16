@@ -14,10 +14,7 @@ class Pager {
     protected $heading;
     protected $data;
     protected $parseFunction;
-
-    public function __constuct()
-    {
-    }
+    protected $linkFunction;
 
     public function getContent()
     {
@@ -56,6 +53,26 @@ class Pager {
     {
     }
 
+    public function setStart($index)
+    {
+        if(!is_numeric($index))
+            $index = 1;
+
+        $oldWin = $this->data->getWindow();
+
+        $this->data->setWindow(new Window($index, $oldWin->getCount()));
+    }
+
+    public function setStride($length)
+    {
+        if(!is_numeric($length))
+            $length = 25;
+
+        $oldWin = $this->data->getWindow();
+
+        $this->data->setWindow(new Window($oldWin->getStart(), $length));
+    }
+
     public function setParser($function)
     {
         $this->parseFunction = $function;
@@ -66,10 +83,40 @@ class Pager {
         if(is_callable($this->parseFunction))
             return call_user_func($this->parseFunction, $item);
     }
+
+    public function getPageCount()
+    {
+        return (int)($this->data->length() / $this->data->getWindow()->getCount());
+    }
+
+    public function setLinker($linker)
+    {
+        $this->linkFunction = $linker;
+    }
+
+    public function getPageLinks()
+    {
+        $links  = "";
+        $window = $this->data->getWindow();
+
+        if(is_callable($this->linkFunction)){
+            for($i = 0; $i < $this->getPageCount(); $i++){
+                $links .= call_user_func($this->linkFunction, $i, $window, $this->getPageCount());
+            }
+        }
+
+        return $links;
+    }
 }
 
-class DataSet implements Iterator {
-    protected $data;
+interface DataSet extends Iterator {
+    public function getItem($index);
+    public function setWindow(Window $window);
+    public function getWindow();
+    public function length();
+}
+
+abstract class BaseDataSet implements DataSet {
     protected $window;
     protected $filters;
     protected $position;
@@ -83,21 +130,14 @@ class DataSet implements Iterator {
         }
     }
 
-    public function setData($data)
-    {
-        $this->data = $data;
-    }
-
-    public function getItem($index)
-    {
-        if(isset($this->data[$index])){
-            return $this->data[$index];
-        }
-    }
-
     public function setWindow(Window $window)
     {
         $this->window = $window;
+    }
+
+    public function getWindow()
+    {
+        return $this->window;
     }
 
     /**
@@ -122,14 +162,76 @@ class DataSet implements Iterator {
     {
         ++$this->position;
     }
+}
+
+class DbDataSet extends BaseDataSet {
+    public $_db;
+    protected $_queryChanged = true;
+    protected $_cachedResult;
+
+    public function getItem($index)
+    {
+        $this->runQuery();
+
+        if(isset($this->_cachedResult[$index])){
+            return $this->_cachedResult[$index];
+        }
+    }
 
     public function valid()
     {
-        if($this->position-$this->window->getStart() < $this->window->getCount()){
-            return isset($this->data[$this->position]);
-        }
-        return false;
+        $this->runQuery();
+
+        return isset($this->_cachedResult[$this->position]);
     }
+
+    public function length()
+    {
+        return $this->_db->count();
+    }
+
+    private function runQuery()
+    {
+        if(!$this->_queryChanged)
+            return;
+
+        $result = $this->_db->select();
+
+        if(PHPWS_Error::logIfError($result)){
+            return false;
+        }
+
+        $this->_cachedResult = $result;
+        $this->_queryChanged = false;
+    }
+
+}
+
+class ArrayDataSet extends BaseDataSet {
+    protected $data;
+
+    public function getItem($index)
+    {
+        if(isset($this->data[$index])){
+            return $this->data[$index];
+        }
+    }
+
+    public function valid()
+    {
+        return isset($this->data[$this->position]) && $this->position-$this->window->getStart() < $this->window->getCount();
+    }
+
+    public function setData(Array $data)
+    {
+        $this->data = $data;
+    }
+
+    public function length()
+    {
+        return sizeof($this->data);
+    }
+
 }
 
 class Window {
@@ -138,7 +240,7 @@ class Window {
 
     public function __construct($start = NULL, $count = NULL)
     {
-        $this->start = is_numeric($start) ? $start : 0;
+        $this->start = is_numeric($start) ? $start : 1;
         $this->count = is_numeric($count) ? $count : 10;
     }
 

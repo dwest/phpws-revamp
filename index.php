@@ -10,33 +10,20 @@ PHPWS_Core::initModClass('testing', 'Pager.php');
 $p = new Pager();
 $p->setHeading("My fancy pager!");
 
-$d = new DataSet();
+$d = new DbDataSet();
+$d->_db = new PHPWS_DB('test');
+$d->_db->setIndexBy('id');
 
-$foo = array();
-for($i = 0; $i < 10; $i++){
-    $foo[$i] = $i;
-}
-
-$d->setData($foo);
 $p->setData($d);
 $p->setParser(function($item){
-        return "item: ".$item;
+        return "item: ".$item['value'];
+    });
+$p->setLinker(function($index, $window, $count){
+        return ($index*$window->getCount()+1).'-'.(($index+1)*$window->getCount()).($index < $count-1 ? ', ' : '');
     });
 
 Layout::add($p->getContent());
-
-/*
-foreach($d as $key=>$val){
-    Layout::add(sprintf("%d %d<br />", $key, $val));
-}
-
-Layout::add('Now restricting range<br />');
-
-$d->setWindow(new Window(1, 4));
-
-foreach($d as $key=>$val){
-    Layout::add(sprintf("%d %d<br />", $key, $val));
-}
-*/
+Layout::add("<p>Pages: ".$p->getPageCount()."</p>");
+Layout::add("<p>Links: ".$p->getPageLinks()."</p>");
 
 ?>
